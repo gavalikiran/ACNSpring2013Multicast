@@ -1,0 +1,624 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<!-- saved from url=(0148)https://elearningpilot.utdallas.edu/bbcswebdav/pid-158662-dt-content-rid-692986_1/courses/2132-UTDAL-CE-6390-SEC001-23807/6390-Spring13-Project.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+  <title>CS 6390 Spring 2018 Project</title>
+
+  
+  
+  <meta content="J Cobb" name="author">
+
+<style type="text/css"></style></head><body style="color: rgb(0, 0, 0); background-color: rgb(200, 255, 255);" alink="#000099" link="#000099" vlink="#990099">
+<b><big><big>CS 6390 Spring 2013 Programming Project<br>
+</big></big></b><b style="color: rgb(0, 0, 0); font-family: &#39;Times New Roman&#39;; font-size: medium; font-style: normal; font-variant: normal; letter-spacing: normal; line-height: normal; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; word-spacing: 0px;"><br>
+NOTE: your project MUST run on one of the Unix machines on campus, NOT
+ON YOUR PC. I recommend {cs1,cs2}.utdallas.edu (linux machines) or
+{cs3,cs4}.utdallas.edu (solaris machines). Machines like apache will
+likely complain about resource usage!<br><br>You can use any language that you want, as long as it runs on the unix machines on campus.<br><br>I
+recoomend that you DO NOT use threads! In the past, students
+unknowingly have created around 200 threads which of course causes the
+system to kill your programs.<br><br>You will submit your source code
+and any instructions on how to compile it (i.e. which machine you
+compiled it on and using what command) You have to submite a README
+file, along with your source code, indicating: on which machine you run
+it, *exactly* what command you used to compile it.<br><br>Please make
+sure your program uses the arguments as described below and in the
+order described. Otherwise, the TA may have to modify the shell scripts
+to run our tests, which we will not be happy about (hence, possible
+point deduction).<span class="Apple-converted-space">&nbsp;</span><br><br>We will run your code in the UTD unix machine that you mention in the README file, and see if it works.<br><br>This
+is a long description, so it can have many omissions, typos, and
+mistakes. The sooner you read it and find them, the sooner I will be
+able to fix them :)<br></b><span style="color: rgb(0, 0, 0); font-family: &#39;Times New Roman&#39;; font-size: medium; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; line-height: normal; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; word-spacing: 0px; background-color: rgb(255, 255, 255); display: inline ! important; float: none;"></span><b><br>
+</b>
+<h2>Overview<br>
+</h2>
+
+<p>The network we will simulate will be a network with
+unidirectional
+channels (links). Thus, if from node x to node y there is a channel it
+does not imply that there is a channel also from y to x. We will build
+a link-state routing protocol, and then build a multicast protocol on
+top of it (and no it is not MOSPF)<br>
+</p>
+
+<p>We will simulate a very simple network by having a unix
+process correspond to a node in the network, and files correspond to
+channels in the network. Thus, if I have two nodes x and y in the
+network, and a channel from x to y, x and y will be unix processes
+running in the background (concurrently) and the channel from x to y
+will be a unix file. <br>
+</p>
+
+<p>We will have at most 10 nodes in the network, nodes 0
+, 1, 2, . . . , 9. There will also be a special node, a "controller"
+node. This node does not represent any "real" node, but we need it due
+to the fact that we will use files to represent channels.<br>
+</p>
+
+<h2>Process names and arguments</h2>
+
+All "regular" nodes will have the same code, the filename should be
+called node.cc (if c++, for example, or node.java, etc), the controller should be simply
+called controller.cc (if c++ is used).<br>
+
+<br>
+
+If a node is neither a sender nor a receiver of the multicast group,
+then it will be executed as follows<br>
+
+<br>
+
+&gt; node ID &amp;<br>
+
+<br>
+
+where "&gt;" is the unix prompt (which varies from machine to
+machine),
+"node" is the executabe code of the node, ID is from 0 to 9, and
+"&amp;" indicates that the process will be run in the background
+(freeing up the terminal to do other things). E.g., <br>
+
+<br>
+
+&gt; node 5 &amp;<br>
+
+<br>
+
+executes node 5 in the background.<br>
+
+<br>
+
+If the node is a sender, it will be executed as follows<br>
+
+<br>
+
+&gt; node ID sender string &amp;<br>
+
+<br>
+
+where sender is simply the string "sender", and string is an arbitrary
+string of data that the sender will multicast to the receivers. E.g,<br>
+
+<br>
+
+&gt; node 8 sender "this string will be multicast"<br>
+
+<br>
+
+If a node is a receiver, it will be executed as follows<br>
+
+<br>
+
+&gt; node ID receiver S &amp;<br>
+
+<br>
+
+where S is the id (0 .. 9) of the sender whose tree the receiver would
+like to join. E.g.,<br>
+
+<br>
+
+&gt; node 3 receiver 8 &amp;<br>
+
+<br>
+
+would execute a node whose ID is 3 and is a receiver and wants to
+receive from node 8, and hence, it will receive the string "this string
+will be multicast" from the tree of node 8.<br>
+
+<br>
+
+The controller is simply executed as follows<br>
+
+<br>
+
+&gt; controller &amp;<br>
+
+<h3>Channels, Processes, and Files</h3>
+
+Assume there is a channel from y to x (y --&gt; x). In this case,
+we
+say that:<br>
+
+<ul>
+
+  <li>y is an incoming neighbor of x</li>
+  <li>x is an outgoing neighbor of y</li>
+</ul>
+
+
+<p>Each node will periodically broadcast a hello message (more
+details
+on the hello protocol later below). E.g., when y sends a hello message,
+x will receive it, and x will add y to its list of known incoming
+neighbors.<br>
+</p>
+
+<p>Since there is a channel from y to x and no channel from x to
+y,
+then x becomes aware that it has an incoming neighbor y, but y is NOT
+aware it has an outgoing neighbor x since it cannot receive messages
+from x. <br>
+</p>
+
+<p>Note that if there are two channels,&nbsp; y --&gt; x
+and x --&gt;
+y, both x and y will learn that the other process is an incoming
+neighbor of them, but they do not know that the other process is also
+an outgoing neighbor. E.g, y knows it can receive messages from x but
+it does not know x can receive messages from y. <br>
+</p>
+
+<p>Each node x has a single output file, called output_x, where x
+is
+from 0 to 9. <br>
+</p>
+
+<p>Each node x will also have a single incoming file, input_x,
+where x
+is from 0 to 9.<br>
+</p>
+
+<p>The input and output files of a process consist of a sequence
+of
+messages, each message will be in a separate line in the file.<br>
+</p>
+
+<p>Each message sent by a node is heard (received) by all its
+outgoing
+neighbors, but a node is not aware of who its outgoing neighbors are.
+In our simulation, however, how can we implement this? We solve this by
+introducing a "controller" node. This node will implement the fact that
+not all nodes can reach all other nodes in one hop. Thus, the
+controller will have a configuration file (which you write before the
+execution of the simulation) that contains the network topology, i.e.,
+the file describe which nodes are neighbors of each other and which
+ones are not.<br>
+</p>
+
+<p>Thus, if when node y sends a message, it appends it to its
+output
+file output_y<br>
+</p>
+
+<p>The controller will read file output_y, and check the topology
+of
+the network. If x is an outgoing neighbor of y, then it will append
+this message to the file input_x. If another node z is also an outgoing
+neighbor of y, then the controller will also append this very same
+message to the file input_z. In this way, even though y is not aware of
+who are its outgoing neighbors, the controller is aware of them, and
+will copy the message to the appropriate input files of the outgoing
+neighbors.<br>
+</p>
+
+<p>Note that this also will have that each file will be written
+by only
+one process (necessary due to the file locks used in Unix).&nbsp;
+E.g.,
+output_x is written to by x and read by the controller. File input_x is
+written to by the controller and read by x.<br>
+</p>
+
+<p>Note that when x reads input_x there might not be anything
+else to
+read (you read an end of file), however, later the controller may write
+something new. Hence, the fact that you have reach an end of file that
+does not mean everything is over, the next time you read it the
+controller may have appended something new, and hence the next time you
+read you will get the new messages writen by the controller, and not an
+end of file.<br>
+</p>
+
+<p>The toplogy file will be simply called "topology" and the
+controller
+opens it at the beginning of its execution.&nbsp; The topology file
+consists simply of a list of pairs, each pair corresponds to a
+unidirectional channel. E.g, if we have three nodes, 0, 1, and 2,
+arranged in the form of a unidirectional ring, the topology file would
+contain<br>
+</p>
+
+<p>0 1<br>
+1 2<br>
+2 0<br>
+</p>
+
+<p>If the topology consists simply of two nodes 0 and 1, with
+bidirectional channels between them, the topology file would look like<br>
+</p>
+
+<p>0 1<br>
+1 0<br>
+</p>
+
+<p>Each receiver R will open a file called R_received_from_S
+where R is
+the receiver's ID (0.. 9), S is the ID of the sender whose tree R will
+join. Whenever R receives the string from S, it will write this string
+to this file. If R receives the string multiple times then it will
+write the string as many times as it receives it.</p>
+<p><span style="font-weight: bold; color: red;">A final note on input
+and output files, when a message is written to them, the message is
+APPENDED to the file. I.e., these files DO NOT shrink in size during
+the simulation. Actually, at the end of the simulatin the files will
+contain a record of every message sent by the node and every message
+received by the node. We will look at these files and they will be part
+of our grading process, i.e., make sure each node was sending and
+receiving the correct type of messages.</span><br>
+</p>
+
+<h2>Hello Protocol</h2>
+
+Every 5 seconds, each node will send out a hello message with the
+following format <br>
+
+<br>
+
+hello ID <br>
+
+<br>
+
+ID is the ID of the node sending the message (0 .. 9).<br>
+
+<br>
+
+Not that if x receives hello messages from y, it knows there is a
+channel from y to x.<br>
+
+<h2>Routing Protocol</h2>
+
+The routing protocol is simply a link-state routing protocol (by the
+way, link-state works just fine in unidirectional networks). You should
+be familiar with link-state routing from your previous course.<br>
+
+<br>
+
+Periodically, every 10 seconds,&nbsp; each node sends out a message
+(i.e. a linkstate adverstisement) of the following form<br>
+
+<br>
+
+linkstate ID TS n-ID n-ID ...<br>
+
+<br>
+where ID is the ID of the node that created this message, TS is a
+two-digit timestamp (incremented by one every time the node creates
+a new linkstate advertisement, only two digits, 00 ... 99, because the
+program
+will not run long enough to wrap around), and n-ID n-ID ... is a list
+of
+incoming neighbors of the node (learned from the hello messages). <br>
+
+<br>
+
+Each node remembers the largest timestamp received from each other node
+in the system. When a linkstate advertisement is received, and it has a
+larger timestamp than the largest one received thus far, then the node
+will remember the information in this linkstate advertisement, and then
+forward the advertisement (without modifying it in any way) to its
+outgoing neighbors.<br>
+
+<br>
+
+Although each node generates link-state advertisements periodically,
+whenever it receives an advertisement from another node, it will
+immediately forward the advertisements to its neighbors. Hence, an
+advertisement, once generated, will quickly propagate through the
+network.<br>
+
+<br>
+
+Thus, eventually, each node has a complete view of the topology. <br>
+
+<br>
+
+Link-state advertisements have a lifetime of 30 seconds. I.e., if a
+node x does not receive a link-state advertisement from some other node
+i in 30 or more seconds, x removes the link-state advertisement of i
+from its database.<br>
+
+<h2>Multicast Protocol</h2>
+
+<h3>Tree construction<br>
+</h3>
+
+<p>Assume a receiver R wants to join the multicast tree of a
+source S.
+Since R has complete view of the topology, it knows the shortest path
+from S to R. This is the path that should be on the tree.</p>
+
+<p>Assume that the shortest path from S to R has node M as the
+node
+previous to R along this path. I.e., the path from S to R goes from S
+to M and the next hop is from M to R. R knows about M since it has the
+complete view of the topology.</p>
+
+<p>R will then send a join message to M. Note that M is in
+incoming
+neighbor of R. However, there may not be a direct link from R to M.
+Then how can R send a message to M? The answer is SOURCE ROUTING.<br>
+</p>
+
+<p>Since R knows the entire topology, it can obtain the shortest
+path
+from R to M, and then include this path in the message from R to M.<br>
+</p>
+
+<p>Thus, R would send a message of the following form<br>
+</p>
+
+<p>join ID SID PID id0 id1 id2 ... idn<br>
+</p>
+
+<p>where ID is the ID of the node that wants to join the tree,
+SID is
+the ID of the root of the tree, PID is the ID of the parent on the
+tree, and id0 .. idn are the intermediate nodes from ID to PID (not
+including ID and PID).<br>
+</p>
+
+<p>For example, ID would be R, SID would be S, PID would be M,
+and id0
+... idn are the intermediate nodes along the path from R to M (not
+including R and M). The intermediate nodes will make sure this message
+is forwarded along the path and eventually delivered to M. </p>
+
+<p>M receives this message and learns it has to join the tree
+rooted at
+S, so it continues the process, it computes the shortest path from S to
+M, and finds the node N on the last hop of this path (i.e. last hop is
+N --&gt; M), and then sends a join message to N asking it to join
+the
+tree, etc.<br>
+</p>
+
+<p>Eventually the entire path from R to S has joined the tree. If
+a
+node is reached that is already on the tree <br>
+</p>
+
+<b><font color="red"> MORE DETAILS ON SOURCE ROUTING</font></b>
+<p>Each node will remove one id when it receives the message,
+otherwise join messages could loop around forever). </p>
+
+<p>
+E.g, assume ID = 3 (who wants to join), PID = 0 (who is the parent),
+SID = 9 (the root) and the path from 3 to 0 is 3 5 4 0. Then 3 sends
+the message
+<br>
+<br>
+join 3 (ID) 9 (SID) 0 (PID) 5 4 (intermediate nodes) <br>
+<br>
+All neighbors will receive this message, and all (except 5) will drop
+it. Only 5 accepts it, and notices that 4 is the next hop, so it sends
+out the message
+<br>
+<br>
+join 3 (ID) 9 (SID) 0 (PID) 4 (intermediate nodes is now just 4) <br>
+<br>
+All neighbors of 5 will receive this message, and all (except 4) will
+drop it. Only 4 accepts it, and notices that there are no more
+intermediate nodes, and since 0 is the PID, 0 has to be a neighbor of 4
+(it should be :) ), so 4 sends out the message
+<br>
+<br>
+join 3 (ID) 9 (SID) 0 (PID) (intermediate nodes is empty) <br>
+<br>
+Since there are no more intermediate nodes, all nodes except the
+intended destination of this message (i.e. the parent, i.e. 0) will drop
+the message. Process 0 will keep this message and realize that it has a
+child 3 who wants to join the tree rooted at 9.
+<br>
+<br>
+<b><font color="red"> END OF DETAILS ON SOURCE
+ROUTING</font></b>
+</p>
+
+<p>A node that wishes to join the tree of S (either because it is
+a
+receiver or because it received a join message from a child) will send
+its first join message to its parent on this tree immediately after it
+becomes aware it wants to join the tree (ie. receivers will do so
+immediately, intermediate nodes immediately after receiving the join
+message from the child). <br>
+</p>
+
+<p>However, even though a node wants to join the tree (e.g. the
+receiver), there migh not yet be knowledge of a path from S to the node
+(link-state routing has not finished propagating yet). The node has to
+wait until it has knowledge of a path from S to itself before it can
+send a join message. <br>
+</p>
+
+<p>Afterwards, subsequent join messages to the its parent on the
+tree of
+S are sent periodically every 10 seconds to "refresh" the information at
+the parent. If a parent does not hear from a child after 20 seconds it
+removes the child from its list of children for the tree of S.<br>
+</p>
+
+<p>Furthermore, if the network topology changes, (new link-state
+advertisements are received or link-state advertisements expire), the
+node must recompute the path from S to itself. If it finds that it
+should have a different parent, it sends a join message to the new
+parent.<br>
+</p>
+
+<p>Note that a node may be involved in more than one tree. <br>
+</p>
+
+<h3>Data Forwarding</h3>
+
+<p>Each source node S periodically (every 10 seconds) sends a
+message
+of the following form:<br>
+</p>
+
+<p>data sender-ID root-ID string<br>
+</p>
+
+<p>where sender-ID is the ID of the node sending the message,
+which in
+the first hop is S, but this value changes at every hop, and root-ID is
+the root of the tree, i.e., source S, and string is the string given in
+the arguments of the command line of S.<br>
+</p>
+
+<p>When a node receives a data message, it checks if it is coming
+from
+its parent along the tree rooted at root-ID. If the node is not a
+member of this tree, or if the message is not coming from its parent,
+the message is dropped. If the node is on the tree and the message
+comes from is parent, the message is&nbsp; forwarded.</p>
+
+<h2>Program Skeleton<br>
+</h2>
+
+<p>The main program should look something like this</p>
+
+<p>main(argc, argv) {</p>
+
+<p>&nbsp;&nbsp; Intialization steps (opening files, etc)</p>
+
+<p>&nbsp;&nbsp; for (i=0; i &lt; 150; i++) {</p>
+
+<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+send_hello();&nbsp; /* send
+hello message, if it is time for another
+one */<br>
+&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp; send_link_state_advertisement(); /* send a
+link-state-advertisement if
+it is time for a new one*/<br>
+&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp; refresh_parent(); /* send join message to each
+parent of
+each tree I am
+involved in, if it is time to do so */<br>
+&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp; read_input_file (); /* read the input file and
+process
+each new message
+received */<br>
+</p>
+
+<p>&nbsp;&nbsp;&nbsp; &nbsp;&nbsp; sleep(1);
+/* sleep for one second */<br>
+</p>
+
+<p>&nbsp;&nbsp; }</p>
+
+<p>}</p>
+
+<b>DO NOT RUN YOUR PROGRAM WITHOUT THE SLEEP COMMAND.</b>
+Otherwise you would use too much CPU time and administrators are going
+to
+get upset with you and with me!
+<p style="font-weight: bold; text-decoration: underline;">Notice
+that
+your process will finish within 150
+seconds (or about) after you started it.</p>
+
+Note that you have to run multiple processes in the background. The
+minimum are two processes that are neighbors of each other, of course.<br>
+
+<br>
+
+After each "run", you will have to delete the output files by hand
+(otherwise their contents would be used in the next run, which of
+course is incorrect). Note that at the end of each run, the files
+contain a trace of every message sent by each node.<br>
+
+<br>
+
+Also, after each run, <b>you should always
+check that you did not leave any unwanted processes running, especially
+after you log out !!!</b> To
+find out which processes you have running, type
+<p>ps -ef | grep userid</p>
+
+<p>where userid is your Unix login id. (mine is jcobb).
+That will give you a list of processes with the process identifier (the
+process id is the large number after your user id in the listing)</p>
+
+<p>To kill a process type the following</p>
+
+<p>kill -9 processid</p>
+
+<p>I will give you soon a little writeup on Unix (how to
+compile, etc) and account information. However, you should have enough
+info by now to start working on the design of the code</p>
+
+<h3>How to Run your Project<br>
+</h3>
+<p><br>
+Consider the following scenario, it looks like this<br>
+<br>
+controller &amp;<br>
+node 0 sender "funny message" &amp;<br>
+node 1 &amp;<br>
+node 2 &amp;<br>
+node 3 receiver 0 &amp;<br>
+<br>
+<br>
+You obviously don't have time to type all of that at the Unix prompt, especially if you are a slow typist<br>
+<br>
+So, create a new text file, for example, call it scenario.sh<br>
+<br>
+Put the above lines in the scenario.sh file<br>
+<br>
+Put the topology in a file called topology<br>
+<br>
+topology file:<br>
+<br>
+0 3<br>
+3 0<br>
+3 2<br>
+2 3<br>
+3 1<br>
+1 3<br>
+0 1<br>
+1 0<br>
+1 2<br>
+2 1<br>
+<br>
+Then at the Unix prompt, type<br>
+<br>
+sh scenario.sh<br>
+<br>
+That will cause a "shell" program to read the commands from scenario.sh
+and execute them, so this will case the 3 nodes above to be run in the
+background<br>
+<br>
+You can check that they are still running with the command ps -aef | grep youruserid<br>
+<br>
+You can have a different scenario file for each of scenario<br>
+<br>
+At the end of each scenario, and before you run the next one, don't
+forget to delete all channel files and all "nodeXreceived" files, since
+you have to start each scenario "afresh". You may have to change the
+topology file also if you have a new topology.<br>
+<br>
+Good luck!</p>
+
+</body></html>
